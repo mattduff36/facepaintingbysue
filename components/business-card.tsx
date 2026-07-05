@@ -12,20 +12,20 @@ interface Cell {
 }
 
 // Desktop is a 6x6 grid. The contact card sits in the centre (cols 2-5, rows 3-4).
-// Featured photos occupy the first slots of the ring around it, starting at the
-// bottom-left and moving anticlockwise.
+// Featured photos sit directly underneath it, so the set reads as one balanced
+// strip below the contact section.
 const FEATURED_CELLS: Cell[] = [
-  { col: 1, row: 5 }, // bottom-left corner
   { col: 2, row: 5 },
   { col: 3, row: 5 },
   { col: 4, row: 5 },
+  { col: 5, row: 5 },
 ];
 
 // Remaining photo cells: the rest of the ring (continuing anticlockwise) then the
 // outer top and bottom rows. These rotate through the wider gallery over time.
 const ROTATING_CELLS: Cell[] = [
   // rest of the ring, anticlockwise
-  { col: 5, row: 5 },
+  { col: 1, row: 5 }, // lower-left outer tile
   { col: 6, row: 5 }, // bottom-right corner
   { col: 6, row: 4 },
   { col: 6, row: 3 },

@@ -29,9 +29,9 @@ export const galleryImages: GalleryImage[] = manifest.map((m, index) => ({
 /** Sue's best work, always pinned to the ring around the central contact block. */
 const featuredPool: GalleryImage[] = galleryImages.filter((img) => img.featured);
 
-// The chosen hero image leads the featured ring (placed at the bottom-left start),
+// The chosen hero image leads the featured strip underneath the contact card,
 // with the remaining featured photos following in their original order.
-const FEATURED_FIRST_SRC = "/gallery/sue-02.jpg";
+const FEATURED_FIRST_SRC = "/gallery/sue-01.jpg";
 export const featuredImages: GalleryImage[] = [
   ...featuredPool.filter((img) => img.src === FEATURED_FIRST_SRC),
   ...featuredPool.filter((img) => img.src !== FEATURED_FIRST_SRC),
