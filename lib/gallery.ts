@@ -26,15 +26,16 @@ export const galleryImages: GalleryImage[] = manifest.map((m, index) => ({
   alt: altFor(index),
 }));
 
-/** Number of photo tiles surrounding the central contact block on desktop (6x6 grid minus the 4x2 centre). */
-export const DESKTOP_TILE_COUNT = 28;
+/** Sue's best work, always pinned to the ring around the central contact block. */
+const featuredPool: GalleryImage[] = galleryImages.filter((img) => img.featured);
 
-/**
- * Returns exactly `count` tile images, cycling through the available photos if there
- * are fewer than requested so the grid always fills completely. Featured photos come
- * first so Sue's best work is shown prominently.
- */
-export function getTileImages(count: number = DESKTOP_TILE_COUNT): GalleryImage[] {
-  if (galleryImages.length === 0) return [];
-  return Array.from({ length: count }, (_, i) => galleryImages[i % galleryImages.length]);
-}
+// The chosen hero image leads the featured ring (placed at the bottom-left start),
+// with the remaining featured photos following in their original order.
+const FEATURED_FIRST_SRC = "/gallery/sue-02.jpg";
+export const featuredImages: GalleryImage[] = [
+  ...featuredPool.filter((img) => img.src === FEATURED_FIRST_SRC),
+  ...featuredPool.filter((img) => img.src !== FEATURED_FIRST_SRC),
+];
+
+/** Everything else, used to fill and rotate through the remaining desktop tiles. */
+export const rotatingImages: GalleryImage[] = galleryImages.filter((img) => !img.featured);

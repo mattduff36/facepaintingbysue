@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { Maximize2 } from "lucide-react";
 import type { GalleryImage } from "@/lib/gallery";
 
@@ -19,7 +19,10 @@ const RING_COLORS = [
 interface PhotoTileProps {
   image: GalleryImage;
   onOpen: (index: number) => void;
-  priority?: boolean;
+  /** Load immediately (used for above-the-fold desktop mosaic tiles). */
+  eager?: boolean;
+  /** Crossfade when the image changes (used by rotating desktop tiles). */
+  crossfade?: boolean;
   sizes?: string;
   colorSeed?: number;
   revealDelay?: number;
@@ -28,12 +31,14 @@ interface PhotoTileProps {
 export function PhotoTile({
   image,
   onOpen,
-  priority = false,
+  eager = false,
+  crossfade = false,
   sizes = "(max-width: 1024px) 45vw, 16vw",
   colorSeed = 0,
   revealDelay = 0,
 }: PhotoTileProps) {
   const ring = RING_COLORS[colorSeed % RING_COLORS.length];
+  const loading = eager ? "eager" : "lazy";
 
   return (
     <motion.button
@@ -53,19 +58,41 @@ export function PhotoTile({
         ring,
       ].join(" ")}
     >
-      <Image
-        src={image.src}
-        alt={image.alt}
-        fill
-        sizes={sizes}
-        priority={priority}
-        className="object-cover transition-transform duration-[600ms] ease-out group-hover:scale-[1.12]"
-      />
+      {crossfade ? (
+        <AnimatePresence initial={false}>
+          <motion.span
+            key={image.src}
+            className="absolute inset-0"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.7, ease: "easeInOut" }}
+          >
+            <Image
+              src={image.src}
+              alt={image.alt}
+              fill
+              sizes={sizes}
+              loading={loading}
+              className="object-cover"
+            />
+          </motion.span>
+        </AnimatePresence>
+      ) : (
+        <Image
+          src={image.src}
+          alt={image.alt}
+          fill
+          sizes={sizes}
+          loading={loading}
+          className="object-cover"
+        />
+      )}
 
-      {/* darkening + colour wash on hover */}
+      {/* darkening wash on hover (affordance, not a zoom) */}
       <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/60 via-ink/0 to-ink/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
-      {/* zoom affordance */}
+      {/* zoom affordance icon */}
       <span className="pointer-events-none absolute bottom-2 right-2 flex h-8 w-8 translate-y-2 items-center justify-center rounded-full bg-white/90 text-ink opacity-0 shadow-md transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
         <Maximize2 className="h-4 w-4" aria-hidden />
       </span>

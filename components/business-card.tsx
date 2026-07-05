@@ -1,20 +1,107 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ContactCard } from "./contact-card";
 import { Lightbox } from "./lightbox";
 import { PhotoTile } from "./photo-tile";
-import type { GalleryImage } from "@/lib/gallery";
+import { featuredImages, galleryImages, rotatingImages } from "@/lib/gallery";
 
-interface BusinessCardProps {
-  /** Full deduped set, shown in the lightbox. */
-  images: GalleryImage[];
-  /** The subset placed around the central contact block on desktop. */
-  tiles: GalleryImage[];
+interface Cell {
+  col: number;
+  row: number;
 }
 
-export function BusinessCard({ images, tiles }: BusinessCardProps) {
+// Desktop is a 6x6 grid. The contact card sits in the centre (cols 2-5, rows 3-4).
+// Featured photos occupy the first slots of the ring around it, starting at the
+// bottom-left and moving anticlockwise.
+const FEATURED_CELLS: Cell[] = [
+  { col: 1, row: 5 }, // bottom-left corner
+  { col: 2, row: 5 },
+  { col: 3, row: 5 },
+  { col: 4, row: 5 },
+];
+
+// Remaining photo cells: the rest of the ring (continuing anticlockwise) then the
+// outer top and bottom rows. These rotate through the wider gallery over time.
+const ROTATING_CELLS: Cell[] = [
+  // rest of the ring, anticlockwise
+  { col: 5, row: 5 },
+  { col: 6, row: 5 }, // bottom-right corner
+  { col: 6, row: 4 },
+  { col: 6, row: 3 },
+  { col: 6, row: 2 }, // top-right corner
+  { col: 5, row: 2 },
+  { col: 4, row: 2 },
+  { col: 3, row: 2 },
+  { col: 2, row: 2 },
+  { col: 1, row: 2 }, // top-left corner
+  { col: 1, row: 3 },
+  { col: 1, row: 4 },
+  // outer top row
+  { col: 1, row: 1 },
+  { col: 2, row: 1 },
+  { col: 3, row: 1 },
+  { col: 4, row: 1 },
+  { col: 5, row: 1 },
+  { col: 6, row: 1 },
+  // outer bottom row
+  { col: 1, row: 6 },
+  { col: 2, row: 6 },
+  { col: 3, row: 6 },
+  { col: 4, row: 6 },
+  { col: 5, row: 6 },
+  { col: 6, row: 6 },
+];
+
+const ROTATE_INTERVAL_MS = 4000;
+
+export function BusinessCard() {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [rotating, setRotating] = useState(() =>
+    rotatingImages.slice(0, ROTATING_CELLS.length),
+  );
+
+  // Desktop-only: swap one non-featured tile for an unseen photo every few seconds,
+  // so the whole gallery gets a turn. Featured tiles never rotate.
+  useEffect(() => {
+    if (rotatingImages.length <= ROTATING_CELLS.length) return;
+
+    const desktopMq = window.matchMedia("(min-width: 1024px)");
+    const reduceMq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let timer: ReturnType<typeof setInterval> | undefined;
+
+    const rotateOne = () => {
+      setRotating((prev) => {
+        const visible = new Set(prev.map((img) => img.src));
+        const candidates = rotatingImages.filter((img) => !visible.has(img.src));
+        if (candidates.length === 0) return prev;
+        const slot = Math.floor(Math.random() * prev.length);
+        const pick = candidates[Math.floor(Math.random() * candidates.length)];
+        const next = prev.slice();
+        next[slot] = pick;
+        return next;
+      });
+    };
+
+    const sync = () => {
+      const shouldRun = desktopMq.matches && !reduceMq.matches;
+      if (shouldRun && !timer) {
+        timer = setInterval(rotateOne, ROTATE_INTERVAL_MS);
+      } else if (!shouldRun && timer) {
+        clearInterval(timer);
+        timer = undefined;
+      }
+    };
+
+    sync();
+    desktopMq.addEventListener("change", sync);
+    reduceMq.addEventListener("change", sync);
+    return () => {
+      if (timer) clearInterval(timer);
+      desktopMq.removeEventListener("change", sync);
+      reduceMq.removeEventListener("change", sync);
+    };
+  }, []);
 
   return (
     <>
@@ -24,16 +111,37 @@ export function BusinessCard({ images, tiles }: BusinessCardProps) {
           <ContactCard />
         </div>
 
-        {tiles.map((image, i) => (
-          <PhotoTile
-            key={`tile-${i}`}
-            image={image}
-            onOpen={setOpenIndex}
-            colorSeed={i}
-            priority={i < 6}
-            revealDelay={Math.min(i * 0.025, 0.5)}
-            sizes="16vw"
-          />
+        {featuredImages.map((image, i) => (
+          <div
+            key={`feat-${i}`}
+            style={{ gridColumn: FEATURED_CELLS[i].col, gridRow: FEATURED_CELLS[i].row }}
+          >
+            <PhotoTile
+              image={image}
+              onOpen={setOpenIndex}
+              eager
+              colorSeed={i}
+              revealDelay={i * 0.04}
+              sizes="16vw"
+            />
+          </div>
+        ))}
+
+        {rotating.map((image, i) => (
+          <div
+            key={`rot-${i}`}
+            style={{ gridColumn: ROTATING_CELLS[i].col, gridRow: ROTATING_CELLS[i].row }}
+          >
+            <PhotoTile
+              image={image}
+              onOpen={setOpenIndex}
+              eager
+              crossfade
+              colorSeed={i + FEATURED_CELLS.length}
+              revealDelay={Math.min((i + FEATURED_CELLS.length) * 0.02, 0.5)}
+              sizes="16vw"
+            />
+          </div>
         ))}
       </main>
 
@@ -52,14 +160,13 @@ export function BusinessCard({ images, tiles }: BusinessCardProps) {
           </p>
 
           <div className="grid grid-cols-2 gap-3">
-            {images.map((image, i) => (
+            {galleryImages.map((image, i) => (
               <div key={image.src} className="relative aspect-[3/4]">
                 <PhotoTile
                   image={image}
                   onOpen={setOpenIndex}
+                  eager={i < 4}
                   colorSeed={i}
-                  priority={i < 4}
-                  revealDelay={0}
                   sizes="45vw"
                 />
               </div>
@@ -82,7 +189,7 @@ export function BusinessCard({ images, tiles }: BusinessCardProps) {
       </main>
 
       <Lightbox
-        images={images}
+        images={galleryImages}
         openIndex={openIndex}
         onClose={() => setOpenIndex(null)}
         onNavigate={setOpenIndex}
