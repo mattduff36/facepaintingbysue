@@ -3,8 +3,8 @@ export const site = {
   tagline: "Bringing colourful smiles to Burton upon Trent",
   area: "Burton upon Trent & surrounding areas",
   email: "suesfaces@gmail.com",
-  phoneDisplay: "07592 069348",
-  phoneHref: "tel:+447592069348",
+  phoneDisplay: "07588 486495",
+  phoneHref: "tel:+447588486495",
   facebook: "https://www.facebook.com/suespaintedfaces",
 } as const;
 
