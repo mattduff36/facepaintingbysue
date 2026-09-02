@@ -544,7 +544,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  overflow: auto;
+  overflow: hidden;
 }
 
 .admin-photo-group,
@@ -556,8 +556,27 @@ body {
   box-shadow: 0 14px 28px -20px rgba(42, 31, 51, 0.45);
 }
 
+.admin-photo-group {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.admin-photo-group:not(.is-held) {
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.admin-photo-group.is-held {
+  flex: 0 0 auto;
+  min-height: min-content;
+  max-height: min(42vh, 18rem);
+  overflow: auto;
+}
+
 .admin-photo-group.is-held,
 .admin-holdback {
+  flex-shrink: 0;
   background: rgba(255, 250, 243, 0.72);
 }
 
@@ -598,6 +617,8 @@ body {
   margin: 0;
   padding: 0.15rem;
   list-style: none;
+  min-height: 0;
+  flex: 1 1 auto;
   overflow: auto;
 }
 
@@ -1129,6 +1150,13 @@ body {
   .admin-photo-groups {
     overflow: visible;
     padding-bottom: 8rem;
+  }
+
+  .admin-photo-group:not(.is-held),
+  .admin-photo-group.is-held {
+    flex: 0 0 auto;
+    max-height: none;
+    overflow: visible;
   }
 
   .admin-thumbs {
