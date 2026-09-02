@@ -2,9 +2,14 @@
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    // Gallery photos are already small, pre-sized files; skip runtime optimization
-    // to avoid unnecessary CPU (dev) and image-optimization usage (Vercel).
     unoptimized: true,
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "res.cloudinary.com",
+        pathname: "/**",
+      },
+    ],
   },
 };
 

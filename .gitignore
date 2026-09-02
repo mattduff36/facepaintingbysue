@@ -33,3 +33,6 @@ next-env.d.ts
 # source image dumps (processed into public/gallery)
 /SueFacebookImages
 /SueNewImages
+
+# one-shot Cloudinary migration manifest
+/scripts/.migrate-run.json

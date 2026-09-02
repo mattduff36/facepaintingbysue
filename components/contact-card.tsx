@@ -1,6 +1,6 @@
-import Image from "next/image";
 import { Mail, MapPin, Phone, Sparkles } from "lucide-react";
-import { bookingMailto, site } from "@/lib/site";
+import { AdminLogoTrigger } from "@/components/admin-logo-trigger";
+import { bookingMailto, type SiteSettings } from "@/lib/site-settings";
 
 function FacebookIcon({ className }: { className?: string }) {
   return (
@@ -10,7 +10,15 @@ function FacebookIcon({ className }: { className?: string }) {
   );
 }
 
-export function ContactCard({ compact = false }: { compact?: boolean }) {
+export function ContactCard({
+  compact = false,
+  settings,
+  logoSrc,
+}: {
+  compact?: boolean;
+  settings: SiteSettings;
+  logoSrc: string;
+}) {
   return (
     <div
       className={[
@@ -26,12 +34,11 @@ export function ContactCard({ compact = false }: { compact?: boolean }) {
       <span className="pointer-events-none absolute bottom-5 left-6 h-2 w-2 rounded-full bg-brand-yellow" />
       <span className="pointer-events-none absolute bottom-4 right-4 h-2.5 w-2.5 rounded-full bg-brand-purple/80" />
 
-      <Image
-        src="/images/logo-trans-bg.png"
-        alt="Facepainting by Sue logo"
+      <AdminLogoTrigger
+        src={logoSrc}
+        alt={`${settings.name} logo`}
         width={compact ? 132 : 120}
         height={compact ? 132 : 120}
-        priority
         className={compact ? "h-24 w-auto sm:h-28" : "h-[13vh] max-h-28 w-auto min-h-16"}
       />
 
@@ -53,7 +60,7 @@ export function ContactCard({ compact = false }: { compact?: boolean }) {
         ].join(" ")}
       >
         <Sparkles className="h-3.5 w-3.5 text-brand-orange" aria-hidden />
-        {site.tagline}
+        {settings.tagline}
       </p>
 
       <div
@@ -63,28 +70,33 @@ export function ContactCard({ compact = false }: { compact?: boolean }) {
         ].join(" ")}
       >
         <a
-          href={site.phoneHref}
+          href={settings.phoneHref}
           className="group inline-flex items-center gap-2 transition-colors hover:text-brand-red"
         >
           <Phone className="h-4 w-4 text-brand-red" aria-hidden />
-          {site.phoneDisplay}
+          {settings.phoneDisplay}
         </a>
         <a
-          href={bookingMailto}
+          href={bookingMailto(settings)}
           className="group inline-flex items-center gap-2 transition-colors hover:text-brand-blue"
         >
           <Mail className="h-4 w-4 text-brand-blue" aria-hidden />
-          {site.email}
+          {settings.email}
         </a>
         <span className="inline-flex items-center gap-2 text-muted">
           <MapPin className="h-4 w-4 text-brand-green" aria-hidden />
-          {site.area}
+          {settings.area}
         </span>
+        {settings.availability ? (
+          <span className="mt-1 max-w-[32ch] font-semibold text-brand-purple">
+            {settings.availability}
+          </span>
+        ) : null}
       </div>
 
       <div className="mt-1 flex items-center gap-2">
         <a
-          href={bookingMailto}
+          href={bookingMailto(settings)}
           className={[
             "inline-flex items-center gap-2 rounded-full bg-ink px-5 font-display font-bold text-cream",
             "shadow-lg shadow-ink/20 transition-transform duration-200 hover:-translate-y-0.5 hover:bg-brand-purple",
@@ -95,7 +107,7 @@ export function ContactCard({ compact = false }: { compact?: boolean }) {
           Book / Enquire
         </a>
         <a
-          href={site.facebook}
+          href={settings.facebook}
           target="_blank"
           rel="noopener noreferrer"
           aria-label="Facepainting by Sue on Facebook"

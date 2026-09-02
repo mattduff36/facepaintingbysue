@@ -4,76 +4,41 @@ import { useEffect, useState } from "react";
 import { ContactCard } from "./contact-card";
 import { Lightbox } from "./lightbox";
 import { PhotoTile } from "./photo-tile";
-import { featuredImages, galleryImages, rotatingImages } from "@/lib/gallery";
-
-interface Cell {
-  col: number;
-  row: number;
-}
-
-// Desktop is a 6x6 grid. The contact card sits in the centre (cols 2-5, rows 3-4).
-// Featured photos sit directly underneath it, so the set reads as one balanced
-// strip below the contact section.
-const FEATURED_CELLS: Cell[] = [
-  { col: 2, row: 5 },
-  { col: 3, row: 5 },
-  { col: 4, row: 5 },
-  { col: 5, row: 5 },
-];
-
-// Remaining photo cells: the rest of the ring (continuing anticlockwise) then the
-// outer top and bottom rows. These rotate through the wider gallery over time.
-const ROTATING_CELLS: Cell[] = [
-  // rest of the ring, anticlockwise
-  { col: 1, row: 5 }, // lower-left outer tile
-  { col: 6, row: 5 }, // bottom-right corner
-  { col: 6, row: 4 },
-  { col: 6, row: 3 },
-  { col: 6, row: 2 }, // top-right corner
-  { col: 5, row: 2 },
-  { col: 4, row: 2 },
-  { col: 3, row: 2 },
-  { col: 2, row: 2 },
-  { col: 1, row: 2 }, // top-left corner
-  { col: 1, row: 3 },
-  { col: 1, row: 4 },
-  // outer top row
-  { col: 1, row: 1 },
-  { col: 2, row: 1 },
-  { col: 3, row: 1 },
-  { col: 4, row: 1 },
-  { col: 5, row: 1 },
-  { col: 6, row: 1 },
-  // outer bottom row
-  { col: 1, row: 6 },
-  { col: 2, row: 6 },
-  { col: 3, row: 6 },
-  { col: 4, row: 6 },
-  { col: 5, row: 6 },
-  { col: 6, row: 6 },
-];
+import type { GalleryImage } from "@/lib/gallery";
+import { FEATURED_CELLS, ROTATING_CELLS } from "@/lib/mosaic-layout";
+import type { SiteSettings } from "@/lib/site-settings";
 
 const ROTATE_INTERVAL_MS = 4000;
 
-export function BusinessCard() {
+export function BusinessCard({
+  images,
+  featured,
+  rotating,
+  settings,
+  logoSrc,
+}: {
+  images: GalleryImage[];
+  featured: GalleryImage[];
+  rotating: GalleryImage[];
+  settings: SiteSettings;
+  logoSrc: string;
+}) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
-  const [rotating, setRotating] = useState(() =>
-    rotatingImages.slice(0, ROTATING_CELLS.length),
+  const [rotatingVisible, setRotatingVisible] = useState(() =>
+    rotating.slice(0, ROTATING_CELLS.length),
   );
 
-  // Desktop-only: swap one non-featured tile for an unseen photo every few seconds,
-  // so the whole gallery gets a turn. Featured tiles never rotate.
   useEffect(() => {
-    if (rotatingImages.length <= ROTATING_CELLS.length) return;
+    if (rotating.length <= ROTATING_CELLS.length) return;
 
     const desktopMq = window.matchMedia("(min-width: 1024px)");
     const reduceMq = window.matchMedia("(prefers-reduced-motion: reduce)");
     let timer: ReturnType<typeof setInterval> | undefined;
 
     const rotateOne = () => {
-      setRotating((prev) => {
+      setRotatingVisible((prev) => {
         const visible = new Set(prev.map((img) => img.src));
-        const candidates = rotatingImages.filter((img) => !visible.has(img.src));
+        const candidates = rotating.filter((img) => !visible.has(img.src));
         if (candidates.length === 0) return prev;
         const slot = Math.floor(Math.random() * prev.length);
         const pick = candidates[Math.floor(Math.random() * candidates.length)];
@@ -101,19 +66,18 @@ export function BusinessCard() {
       desktopMq.removeEventListener("change", sync);
       reduceMq.removeEventListener("change", sync);
     };
-  }, []);
+  }, [rotating]);
 
   return (
-    <>
-      {/* ---------- Desktop: viewport-locked 6x6 mosaic ---------- */}
+    <div className="home-root">
       <main className="hidden h-[100svh] w-full grid-cols-6 grid-rows-6 gap-2.5 overflow-hidden p-2.5 lg:grid">
         <div className="z-10 col-start-2 col-span-4 row-start-3 row-span-2">
-          <ContactCard />
+          <ContactCard settings={settings} logoSrc={logoSrc} />
         </div>
 
-        {featuredImages.map((image, i) => (
+        {featured.slice(0, FEATURED_CELLS.length).map((image, i) => (
           <div
-            key={`feat-${i}`}
+            key={`feat-${image.publicId}`}
             style={{ gridColumn: FEATURED_CELLS[i].col, gridRow: FEATURED_CELLS[i].row }}
           >
             <PhotoTile
@@ -127,7 +91,7 @@ export function BusinessCard() {
           </div>
         ))}
 
-        {rotating.map((image, i) => (
+        {rotatingVisible.map((image, i) => (
           <div
             key={`rot-${i}`}
             style={{ gridColumn: ROTATING_CELLS[i].col, gridRow: ROTATING_CELLS[i].row }}
@@ -145,10 +109,9 @@ export function BusinessCard() {
         ))}
       </main>
 
-      {/* ---------- Mobile / tablet: hero card + scrollable gallery ---------- */}
       <main className="min-h-[100svh] px-4 pb-10 pt-6 lg:hidden">
         <div className="mx-auto max-w-md">
-          <ContactCard compact />
+          <ContactCard compact settings={settings} logoSrc={logoSrc} />
         </div>
 
         <div className="mx-auto mt-8 max-w-md">
@@ -160,8 +123,8 @@ export function BusinessCard() {
           </p>
 
           <div className="grid grid-cols-2 gap-3">
-            {galleryImages.map((image, i) => (
-              <div key={image.src} className="relative aspect-[3/4]">
+            {images.map((image, i) => (
+              <div key={image.publicId} className="relative aspect-[3/4]">
                 <PhotoTile
                   image={image}
                   onOpen={setOpenIndex}
@@ -189,11 +152,11 @@ export function BusinessCard() {
       </main>
 
       <Lightbox
-        images={galleryImages}
+        images={images}
         openIndex={openIndex}
         onClose={() => setOpenIndex(null)}
         onNavigate={setOpenIndex}
       />
-    </>
+    </div>
   );
 }

@@ -91,7 +91,7 @@ export function Lightbox({ images, openIndex, onClose, onNavigate }: LightboxPro
                   className="relative h-full w-full"
                 >
                   <Image
-                    src={current.src}
+                    src={current.lightboxSrc}
                     alt={current.alt}
                     fill
                     sizes="90vw"
