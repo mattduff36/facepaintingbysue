@@ -43,13 +43,16 @@ import { newGalleryPublicId, validateImageUpload } from "@/lib/upload-policy";
 import { logoUrl } from "@/lib/cloudinary-url";
 import { logoWriteVerified, logoutCookiePatches } from "@/lib/write-verify";
 import {
+  STUDIO_BUSY_ERROR,
   STUDIO_STALE_ERROR,
+  StudioLockLostError,
   acquireStudioLock,
   expireAfterSuccess,
   galleryFingerprint,
   prepareSettingsSave,
   prepareUploadOnLiveList,
   releaseStudioLock,
+  renewStudioLock,
 } from "@/lib/studio-lock";
 
 export type ActionResult<T = undefined> =
@@ -77,12 +80,19 @@ const studioLockStore = {
   write: writeStudioLockRaw,
 };
 
-async function withStudioLock<T>(work: () => Promise<ActionResult<T>>): Promise<ActionResult<T>> {
+async function withStudioLock<T>(
+  work: (lease: { renew: () => Promise<{ ok: true } | { ok: false; error: string }> }) => Promise<ActionResult<T>>,
+): Promise<ActionResult<T>> {
   const token = crypto.randomUUID();
   const locked = await acquireStudioLock(token, studioLockStore);
   if (!locked.ok) return locked;
+  const lease = {
+    renew: () => renewStudioLock(token, studioLockStore),
+  };
   try {
-    return await work();
+    const held = await lease.renew();
+    if (!held.ok) return held;
+    return await work(lease);
   } finally {
     await releaseStudioLock(token, studioLockStore).catch(() => undefined);
   }
@@ -135,9 +145,11 @@ export async function uploadPhotoAction(formData: FormData): Promise<ActionResul
   const policy = validateImageUpload({ type: file.type, size: file.size, name: file.name });
   if (!policy.ok) return fail(policy.error);
 
-  return withStudioLock(async () => {
+  return withStudioLock(async (lease) => {
     try {
       const photos = await readLivePhotos();
+      const held = await lease.renew();
+      if (!held.ok) return held;
       const slot = prepareUploadOnLiveList(photos);
       if (!slot.ok) return fail(slot.error);
 
@@ -243,7 +255,7 @@ async function applyPhotoPlan(
   plan: (photos: CmsPhoto[]) => ReturnType<typeof applySetHero>,
   expectedFingerprint?: string,
 ): Promise<ActionResult> {
-  return withStudioLock(async () => {
+  return withStudioLock(async (lease) => {
     try {
       const photos = await readLivePhotos();
       if (expectedFingerprint && galleryFingerprint(photos) !== expectedFingerprint) {
@@ -258,6 +270,10 @@ async function applyPhotoPlan(
         before,
         planned: planned.value,
         persist: persistPhoto,
+        beforeEach: async () => {
+          const held = await lease.renew();
+          if (!held.ok) throw new StudioLockLostError();
+        },
       });
       if (!persisted.ok) {
         if (persisted.incompleteRollback && shouldExpireCaches(true, true)) {
@@ -277,6 +293,7 @@ async function applyPhotoPlan(
       return { ok: true };
     } catch (error) {
       if (error instanceof AuthError) throw error;
+      if (error instanceof StudioLockLostError) return fail(STUDIO_BUSY_ERROR);
       logAdminMutation({ type, publicId, ok: false, errorCategory: errorCategory(error) });
       return fail("That change could not be saved. Try again.");
     }
@@ -288,9 +305,11 @@ export async function saveSettingsAction(input: unknown): Promise<ActionResult> 
   const parsed = validateSettings(input);
   if (!parsed.ok) return fail(parsed.error);
 
-  return withStudioLock(async () => {
+  return withStudioLock(async (lease) => {
     try {
       const current = (await readSettings()) ?? DEFAULT_SETTINGS;
+      const held = await lease.renew();
+      if (!held.ok) return held;
       const revision = prepareSettingsSave(parsed.value, current);
       if (!revision.ok) return fail(revision.error);
 
@@ -315,8 +334,10 @@ export async function replaceLogoAction(formData: FormData): Promise<ActionResul
   const policy = validateImageUpload({ type: file.type, size: file.size, name: file.name });
   if (!policy.ok) return fail(policy.error);
 
-  return withStudioLock(async (): Promise<ActionResult<{ logoSrc: string }>> => {
+  return withStudioLock(async (lease): Promise<ActionResult<{ logoSrc: string }>> => {
     try {
+      const held = await lease.renew();
+      if (!held.ok) return held;
       const before = await getResource(LOGO_PUBLIC_ID);
       const buffer = Buffer.from(await file.arrayBuffer());
       await uploadImageBuffer({

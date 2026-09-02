@@ -22,18 +22,29 @@ export interface FingerprintPhoto {
   version?: number;
 }
 
-export function parseStudioLock(raw: string | null | undefined): StudioLock | null {
-  if (!raw) return null;
+export type LockRead =
+  | { kind: "absent" }
+  | { kind: "lock"; value: StudioLock }
+  | { kind: "uncertain" };
+
+export function interpretLockRead(raw: string | null | undefined): LockRead {
+  if (raw == null || raw === "") return { kind: "absent" };
   try {
     const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return { kind: "uncertain" };
     const record = parsed as Record<string, unknown>;
-    if (typeof record.token !== "string" || !record.token) return null;
-    if (typeof record.expiresAt !== "number" || !Number.isFinite(record.expiresAt)) return null;
-    return { token: record.token, expiresAt: record.expiresAt };
+    if (record.token === "" && record.expiresAt === 0) return { kind: "absent" };
+    if (typeof record.token !== "string" || !record.token) return { kind: "uncertain" };
+    if (typeof record.expiresAt !== "number" || !Number.isFinite(record.expiresAt)) return { kind: "uncertain" };
+    return { kind: "lock", value: { token: record.token, expiresAt: record.expiresAt } };
   } catch {
-    return null;
+    return { kind: "uncertain" };
   }
+}
+
+export function parseStudioLock(raw: string | null | undefined): StudioLock | null {
+  const read = interpretLockRead(raw);
+  return read.kind === "lock" ? read.value : null;
 }
 
 export function serializeStudioLock(lock: StudioLock): string {
@@ -118,25 +129,78 @@ export interface StudioLockStore {
   write: (json: string) => Promise<void>;
 }
 
+export class StudioLockLostError extends Error {
+  constructor() {
+    super(STUDIO_BUSY_ERROR);
+    this.name = "StudioLockLostError";
+  }
+}
+
+async function readLock(store: StudioLockStore): Promise<LockRead> {
+  return interpretLockRead(await store.read());
+}
+
 export async function acquireStudioLock(
   token: string,
   store: StudioLockStore,
   now = Date.now(),
   ttlMs = STUDIO_LOCK_TTL_MS,
+  clock: () => number = Date.now,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const current = parseStudioLock(await store.read());
-  const decision = decideLockAcquire(current, token, now, ttlMs);
-  if (!decision.ok) return decision;
-  await store.write(serializeStudioLock(decision.lock));
-  const confirmed = parseStudioLock(await store.read());
-  if (!lockOwnedBy(confirmed, token, now)) {
+  try {
+    const currentRead = await readLock(store);
+    if (currentRead.kind === "uncertain") return { ok: false, error: STUDIO_BUSY_ERROR };
+    const current = currentRead.kind === "lock" ? currentRead.value : null;
+    const decision = decideLockAcquire(current, token, now, ttlMs);
+    if (!decision.ok) return decision;
+    await store.write(serializeStudioLock(decision.lock));
+    const confirmed = await readLock(store);
+    if (confirmed.kind !== "lock" || !lockOwnedBy(confirmed.value, token, clock())) {
+      return { ok: false, error: STUDIO_BUSY_ERROR };
+    }
+    return { ok: true };
+  } catch {
     return { ok: false, error: STUDIO_BUSY_ERROR };
   }
-  return { ok: true };
 }
 
-export async function releaseStudioLock(token: string, store: StudioLockStore, now = Date.now()): Promise<void> {
-  const current = parseStudioLock(await store.read());
-  if (!lockOwnedBy(current, token, now)) return;
-  await store.write(serializeStudioLock({ token: "", expiresAt: 0 }));
+export async function renewStudioLock(
+  token: string,
+  store: StudioLockStore,
+  now = Date.now(),
+  ttlMs = STUDIO_LOCK_TTL_MS,
+  clock: () => number = Date.now,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const current = await readLock(store);
+    if (current.kind === "uncertain") return { ok: false, error: STUDIO_BUSY_ERROR };
+    const held = current.kind === "lock" ? current.value : null;
+    if (!lockOwnedBy(held, token, clock())) {
+      return { ok: false, error: STUDIO_BUSY_ERROR };
+    }
+    await store.write(serializeStudioLock({ token, expiresAt: clock() + ttlMs }));
+    const confirmed = await readLock(store);
+    if (confirmed.kind !== "lock" || !lockOwnedBy(confirmed.value, token, clock())) {
+      return { ok: false, error: STUDIO_BUSY_ERROR };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: STUDIO_BUSY_ERROR };
+  }
+}
+
+export async function releaseStudioLock(
+  token: string,
+  store: StudioLockStore,
+  now = Date.now(),
+  clock: () => number = Date.now,
+): Promise<void> {
+  try {
+    const current = await readLock(store);
+    if (current.kind !== "lock") return;
+    if (!lockOwnedBy(current.value, token, clock())) return;
+    await store.write(serializeStudioLock({ token: "", expiresAt: 0 }));
+  } catch {
+    // TTL covers a failed release.
+  }
 }

@@ -113,7 +113,9 @@ export function mergePlannedImages(images: GalleryImage[], planned: CmsPhoto[]):
       hidden: photo.hidden,
       index,
       alt: photo.alt || current?.alt || "",
+      storedAlt: current?.storedAlt ?? photo.alt ?? "",
       order: photo.order,
+      version: current?.version ?? photo.version,
     };
   });
 }

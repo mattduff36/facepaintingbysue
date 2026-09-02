@@ -2,19 +2,23 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { applyUploadSlot, GALLERY_HARD_CAP, type CmsPhoto } from "../lib/gallery-invariants";
 import { DEFAULT_SETTINGS, assertCurrentRevision } from "../lib/site-settings";
+import { mergePlannedImages, type GalleryImage } from "../lib/gallery";
 import {
   STUDIO_BUSY_ERROR,
+  STUDIO_LOCK_TTL_MS,
   STUDIO_STALE_ERROR,
   acquireStudioLock,
   decideLockAcquire,
   expireAfterSuccess,
   galleryFingerprint,
+  interpretLockRead,
   lockHeldByOther,
   parseStudioLock,
   prepareSettingsSave,
   prepareUploadOnLiveList,
   rejectIfGalleryStale,
   releaseStudioLock,
+  renewStudioLock,
   serializeStudioLock,
   shouldReloadStudio,
   type StudioLockStore,
@@ -63,18 +67,47 @@ describe("T-STUDIO-LOCK-ACQUIRE", () => {
     assert.equal(busy.ok, false);
     if (!busy.ok) assert.equal(busy.error, STUDIO_BUSY_ERROR);
 
+    const clock = () => now;
     const store = memoryStore(null);
-    assert.equal((await acquireStudioLock("a", store, now)).ok, true);
-    assert.equal((await acquireStudioLock("b", store, now)).ok, false);
-    await releaseStudioLock("a", store, now);
-    assert.equal((await acquireStudioLock("b", store, now)).ok, true);
+    assert.equal((await acquireStudioLock("a", store, now, STUDIO_LOCK_TTL_MS, clock)).ok, true);
+    assert.equal((await acquireStudioLock("b", store, now, STUDIO_LOCK_TTL_MS, clock)).ok, false);
+    await releaseStudioLock("a", store, now, clock);
+    assert.equal((await acquireStudioLock("b", store, now, STUDIO_LOCK_TTL_MS, clock)).ok, true);
 
     const raced = memoryStore(null);
     const [first, second] = await Promise.all([
-      acquireStudioLock("a", raced, now),
-      acquireStudioLock("b", raced, now),
+      acquireStudioLock("a", raced, now, STUDIO_LOCK_TTL_MS, clock),
+      acquireStudioLock("b", raced, now, STUDIO_LOCK_TTL_MS, clock),
     ]);
     assert.equal([first.ok, second.ok].filter(Boolean).length, 1);
+
+    assert.equal(interpretLockRead("{not-json").kind, "uncertain");
+    assert.equal((await acquireStudioLock("c", memoryStore("{not-json"), now, STUDIO_LOCK_TTL_MS, clock)).ok, false);
+
+    const throwing: StudioLockStore = {
+      async read() {
+        throw new Error("network");
+      },
+      async write() {},
+    };
+    assert.equal((await acquireStudioLock("c", throwing, now, STUDIO_LOCK_TTL_MS, clock)).ok, false);
+
+    let t = now;
+    const moving = () => t;
+    const delayed = memoryStore(null);
+    const originalWrite = delayed.write.bind(delayed);
+    delayed.write = async (json: string) => {
+      await originalWrite(json);
+      t = now + STUDIO_LOCK_TTL_MS + 1;
+    };
+    assert.equal((await acquireStudioLock("late", delayed, now, STUDIO_LOCK_TTL_MS, moving)).ok, false);
+
+    t = now;
+    const held = memoryStore(null);
+    assert.equal((await acquireStudioLock("a", held, now, STUDIO_LOCK_TTL_MS, moving)).ok, true);
+    assert.equal((await renewStudioLock("a", held, now, STUDIO_LOCK_TTL_MS, moving)).ok, true);
+    t = now + STUDIO_LOCK_TTL_MS + 1;
+    assert.equal((await renewStudioLock("a", held, t, STUDIO_LOCK_TTL_MS, moving)).ok, false);
   });
 });
 
@@ -95,6 +128,29 @@ describe("T-STUDIO-LOCK-STALE", () => {
       galleryFingerprint([{ publicId: "one", alt: "shown", storedAlt: "stored", order: 0, featured: false, hero: false, hidden: false }]),
       galleryFingerprint([{ publicId: "one", alt: "stored", order: 0, featured: false, hero: false, hidden: false }]),
     );
+
+    const mosaic: GalleryImage[] = [
+      {
+        publicId: "one",
+        src: "/one.jpg",
+        lightboxSrc: "/one-lg.jpg",
+        featured: true,
+        hero: true,
+        hidden: false,
+        index: 0,
+        alt: "shown",
+        storedAlt: "stored",
+        order: 0,
+        version: 4,
+      },
+    ];
+    const first = mergePlannedImages(mosaic, [photo({ publicId: "one", alt: "stored", order: 1, featured: true, hero: true, version: 4 })]);
+    const second = mergePlannedImages(first, [photo({ publicId: "one", alt: "stored", order: 2, featured: true, hero: true, version: 4 })]);
+    assert.equal(first[0]?.version, 4);
+    assert.equal(first[0]?.storedAlt, "stored");
+    assert.equal(second[0]?.version, 4);
+    assert.equal(second[0]?.storedAlt, "stored");
+    assert.equal(galleryFingerprint(first), galleryFingerprint([{ ...second[0], order: first[0].order }]));
   });
 });
 

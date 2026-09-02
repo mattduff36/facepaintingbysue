@@ -4,6 +4,7 @@ export async function persistPlannedPhotos(input: {
   before: Map<string, CmsPhoto>;
   planned: CmsPhoto[];
   persist: (photo: CmsPhoto) => Promise<CmsPhoto>;
+  beforeEach?: () => Promise<void>;
 }): Promise<{ ok: true } | { ok: false; incompleteRollback: boolean }> {
   const changed = input.planned.filter((photo) => {
     const previous = input.before.get(photo.publicId);
@@ -13,6 +14,7 @@ export async function persistPlannedPhotos(input: {
   const applied: CmsPhoto[] = [];
   try {
     for (const photo of changed) {
+      if (input.beforeEach) await input.beforeEach();
       applied.push(photo);
       const verified = await input.persist(photo);
       if (!samePhotoState({ ...photo, version: verified.version }, verified)) {
@@ -20,7 +22,8 @@ export async function persistPlannedPhotos(input: {
       }
     }
     return { ok: true };
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.name === "StudioLockLostError") throw error;
     let incompleteRollback = false;
     for (const photo of applied) {
       const original = input.before.get(photo.publicId);

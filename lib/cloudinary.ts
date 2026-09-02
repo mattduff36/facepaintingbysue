@@ -193,7 +193,18 @@ export async function uploadRawJson(publicId: string, json: string, overwrite = 
 }
 
 export async function readStudioLockRaw(): Promise<string | null> {
-  return downloadRaw(STUDIO_LOCK_PUBLIC_ID);
+  const cld = configured();
+  try {
+    const resource = await cld.api.resource(STUDIO_LOCK_PUBLIC_ID, { resource_type: "raw" });
+    const url = typeof resource.secure_url === "string" ? resource.secure_url : null;
+    if (!url) throw new Error("Studio lock URL missing");
+    const response = await fetch(url, { cache: "no-store" });
+    if (!response.ok) throw new Error(`Studio lock read failed: ${response.status}`);
+    return await response.text();
+  } catch (error) {
+    if (cloudinaryHttpCode(error) === 404) return null;
+    throw error;
+  }
 }
 
 export async function writeStudioLockRaw(json: string): Promise<void> {
