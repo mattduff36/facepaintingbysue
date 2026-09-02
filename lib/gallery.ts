@@ -11,7 +11,9 @@ export interface GalleryImage {
   hidden: boolean;
   index: number;
   alt: string;
+  storedAlt?: string;
   order: number;
+  version?: number;
 }
 
 const DESIGN_LABELS = [
@@ -36,7 +38,9 @@ function toMappedImage(photo: CmsPhoto, index: number, cloudName: string): Galle
     hidden: photo.hidden,
     index,
     alt: altFor(index, photo.alt),
+    storedAlt: photo.alt ?? "",
     order: photo.order,
+    version: photo.version,
   };
 }
 

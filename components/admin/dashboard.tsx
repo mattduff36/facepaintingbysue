@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, useTransition, type KeyboardEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { GalleryImage } from "@/lib/gallery";
@@ -13,6 +13,7 @@ import { HomepagePreview } from "./homepage-preview";
 import { PhotoManager } from "./photo-manager";
 import { SiteForm } from "./site-form";
 import { studioMutationAllowed } from "@/lib/studio-layout";
+import { shouldReloadStudio } from "@/lib/studio-lock";
 import type { StudioRun } from "./studio-types";
 
 const ADMIN_TABS = ["photos", "homepage", "settings", "guide"] as const;
@@ -54,6 +55,23 @@ export function AdminDashboard({
     guide: guideTabRef,
   };
 
+  useEffect(() => {
+    setImages(initialImages);
+  }, [initialImages]);
+
+  useEffect(() => {
+    function reloadLive() {
+      if (document.visibilityState !== "visible") return;
+      router.refresh();
+    }
+    document.addEventListener("visibilitychange", reloadLive);
+    window.addEventListener("focus", reloadLive);
+    return () => {
+      document.removeEventListener("visibilitychange", reloadLive);
+      window.removeEventListener("focus", reloadLive);
+    };
+  }, [router]);
+
   const run: StudioRun = (label, work, next) => {
     if (!studioMutationAllowed(pending)) return;
     setError("");
@@ -65,6 +83,7 @@ export function AdminDashboard({
       if (!result.ok) {
         setImages(previous);
         setError(result.error ?? "That change could not be saved.");
+        if (result.error && shouldReloadStudio(result.error)) router.refresh();
         return;
       }
       if (label) setMessage(label);

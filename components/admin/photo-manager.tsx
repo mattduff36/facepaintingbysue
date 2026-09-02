@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import type { GalleryImage } from "@/lib/gallery";
 import { FEATURED_CAP, FEATURED_CAP_ERROR } from "@/lib/gallery-invariants";
 import { proposeGroupMove } from "@/lib/studio-layout";
+import { galleryFingerprint } from "@/lib/studio-lock";
 import {
   applyStudioLayoutAction,
   archivePhotoAction,
@@ -216,7 +217,7 @@ export function PhotoManager({
     }
     const sameGroup = dest === "hidden" ? moving.hidden : !moving.hidden;
     const label = sameGroup ? "Photo order saved." : dest === "hidden" ? "Held back from the homepage." : "Shown on the homepage.";
-    runChange(label, () => applyStudioLayoutAction(proposed.value.plan), proposed.value.images);
+    runChange(label, () => applyStudioLayoutAction(proposed.value.plan, galleryFingerprint(images)), proposed.value.images);
   }
 
   function reorderWithin(group: GalleryImage[], fromId: string, toId: string) {
@@ -228,7 +229,14 @@ export function PhotoManager({
     nextGroup.splice(to, 0, moved);
     const other = images.filter((image) => (group[0]?.hidden ? !image.hidden : image.hidden));
     const next = group[0]?.hidden ? [...other, ...nextGroup] : [...nextGroup, ...other];
-    runChange("Photo order saved.", () => reorderPhotosAction(next.map((item) => item.publicId)), next);
+    runChange(
+      "Photo order saved.",
+      () => reorderPhotosAction(
+        next.map((item) => item.publicId),
+        galleryFingerprint(images),
+      ),
+      next,
+    );
   }
 
   return (
@@ -432,7 +440,13 @@ export function PhotoManager({
                 }
                 onAltBlur={(value) => {
                   if (value === focused.alt) return;
-                  runChange("Description saved.", () => setAltAction(focused.publicId, value));
+                  runChange(
+                    "Description saved.",
+                    () => setAltAction(focused.publicId, value),
+                    images.map((item) =>
+                      item.publicId === focused.publicId ? { ...item, alt: value, storedAlt: value } : item,
+                    ),
+                  );
                 }}
                 onFeature={() =>
                   runChange(

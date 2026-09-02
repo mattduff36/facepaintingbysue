@@ -1,15 +1,26 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { phoneHrefFromDisplay, type SiteSettings } from "@/lib/site-settings";
 import { replaceLogoAction, saveSettingsAction } from "@/app/admin/actions";
+import { shouldReloadStudio } from "@/lib/studio-lock";
 
 export function SiteForm({ settings, logoSrc }: { settings: SiteSettings; logoSrc: string }) {
+  const router = useRouter();
   const [draft, setDraft] = useState(settings);
   const [preview, setPreview] = useState(logoSrc);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setDraft((current) => (current.revision !== settings.revision ? settings : current));
+  }, [settings]);
+
+  useEffect(() => {
+    setPreview(logoSrc);
+  }, [logoSrc]);
 
   function field<K extends keyof SiteSettings>(key: K, value: SiteSettings[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -37,6 +48,7 @@ export function SiteForm({ settings, logoSrc }: { settings: SiteSettings; logoSr
             const result = await saveSettingsAction(draft);
             if (!result.ok) {
               setError(result.error);
+              if (shouldReloadStudio(result.error)) router.refresh();
               return;
             }
             setDraft((current) => ({ ...current, revision: current.revision + 1 }));
@@ -103,6 +115,7 @@ export function SiteForm({ settings, logoSrc }: { settings: SiteSettings; logoSr
                     const result = await replaceLogoAction(data);
                     if (!result.ok) {
                       setError(result.error);
+                      if (shouldReloadStudio(result.error)) router.refresh();
                       return;
                     }
                     if (result.data?.logoSrc) setPreview(result.data.logoSrc);

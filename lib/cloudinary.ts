@@ -14,6 +14,7 @@ import {
   parseSettingsJson,
   type SiteSettings,
 } from "./site-settings";
+import { STUDIO_LOCK_PUBLIC_ID } from "./studio-lock";
 import { writeSettingsPipeline } from "./write-verify";
 
 export class CloudinaryConfigError extends Error {
@@ -189,6 +190,14 @@ export async function uploadRawJson(publicId: string, json: string, overwrite = 
     overwrite,
     invalidate: true,
   });
+}
+
+export async function readStudioLockRaw(): Promise<string | null> {
+  return downloadRaw(STUDIO_LOCK_PUBLIC_ID);
+}
+
+export async function writeStudioLockRaw(json: string): Promise<void> {
+  await uploadRawJson(STUDIO_LOCK_PUBLIC_ID, json, true);
 }
 
 async function downloadRaw(publicId: string): Promise<string | null> {

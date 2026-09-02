@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { applyStudioLayoutAction, setHiddenAction } from "@/app/admin/actions";
 import { ContactCard } from "@/components/contact-card";
 import type { GalleryImage } from "@/lib/gallery";
 import { FEATURED_CELLS, ROTATING_CELLS } from "@/lib/mosaic-layout";
 import type { SiteSettings } from "@/lib/site-settings";
 import { mosaicSnapshot, proposeStudioDrop, type DropSource } from "@/lib/studio-layout";
+import { galleryFingerprint } from "@/lib/studio-lock";
 import type { StudioRun } from "./studio-types";
 
 export function HomepagePreview({
@@ -27,7 +28,35 @@ export function HomepagePreview({
   run: StudioRun;
 }) {
   const [dragging, setDragging] = useState<DropSource | null>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [mosaicBox, setMosaicBox] = useState({ width: 0, height: 0 });
   const snapshot = mosaicSnapshot(images);
+
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+
+    const fit = () => {
+      const rect = frame.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      if (rect.width < 8 || rect.height < 8 || vw < 1 || vh < 1) return;
+      const scale = Math.min(rect.width / vw, rect.height / vh);
+      setMosaicBox({
+        width: Math.floor(vw * scale),
+        height: Math.floor(vh * scale),
+      });
+    };
+
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(frame);
+    window.addEventListener("resize", fit);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", fit);
+    };
+  }, []);
 
   function persistDrop(source: DropSource, dest: Parameters<typeof proposeStudioDrop>[2]) {
     const proposed = proposeStudioDrop(images, source, dest);
@@ -37,7 +66,7 @@ export function HomepagePreview({
       return;
     }
     const label = dest.to === "tray" ? "Held back from the homepage." : "Homepage layout saved.";
-    run(label, () => applyStudioLayoutAction(proposed.value.plan), proposed.value.images);
+    run(label, () => applyStudioLayoutAction(proposed.value.plan, galleryFingerprint(images)), proposed.value.images);
   }
 
   return (
@@ -52,10 +81,18 @@ export function HomepagePreview({
       {error ? <p className="admin-error" role="alert">{error}</p> : null}
       {message ? <p className="admin-ok" role="status">{message}</p> : null}
 
-      <div className="admin-mosaic-frame">
-        <div className="admin-mosaic" aria-label="Homepage mosaic preview">
+      <div className="admin-mosaic-frame" ref={frameRef}>
+        <div
+          className="admin-mosaic"
+          aria-label="Homepage mosaic preview"
+          style={
+            mosaicBox.width > 0
+              ? { width: mosaicBox.width, height: mosaicBox.height }
+              : undefined
+          }
+        >
           <div className="admin-mosaic-card">
-            <ContactCard settings={settings} logoSrc={logoSrc} />
+            <ContactCard mosaic settings={settings} logoSrc={logoSrc} />
           </div>
           {snapshot.featuredSlots.map((image, index) => (
             <MosaicSlot
