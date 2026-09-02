@@ -163,6 +163,16 @@ body {
   font-weight: 800;
 }
 
+.admin-brand-link {
+  display: inline-flex;
+  text-decoration: none;
+  color: inherit;
+}
+
+.admin-brand-link:hover {
+  opacity: 0.82;
+}
+
 .brand-mark {
   display: inline-flex;
   align-items: center;

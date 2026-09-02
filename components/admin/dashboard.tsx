@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition, type KeyboardEvent } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { GalleryImage } from "@/lib/gallery";
 import type { SiteSettings } from "@/lib/site-settings";
@@ -96,7 +97,9 @@ export function AdminDashboard({
       <header className="admin-topbar">
         <div className="admin-topbar-bar">
           <h1>
-            <BrandMark logoSrc={logoSrc} />
+            <Link href="/" className="admin-brand-link">
+              <BrandMark logoSrc={logoSrc} />
+            </Link>
           </h1>
           <nav className="admin-topbar-nav" aria-label="Studio">
             <button
