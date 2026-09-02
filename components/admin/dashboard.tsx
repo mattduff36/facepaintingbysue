@@ -18,19 +18,28 @@ import type { StudioRun } from "./studio-types";
 const ADMIN_TABS = ["photos", "homepage", "settings", "guide"] as const;
 type AdminTab = (typeof ADMIN_TABS)[number];
 
+const TAB_COPY: Record<AdminTab, { full: string; short: string }> = {
+  photos: { full: "Photos", short: "Photos" },
+  homepage: { full: "Homepage", short: "Home" },
+  settings: { full: "Site settings", short: "Settings" },
+  guide: { full: "How this works", short: "Guide" },
+};
+
 export function AdminDashboard({
   images: initialImages,
   settings,
   logoSrc,
+  loadError,
 }: {
   images: GalleryImage[];
   settings: SiteSettings;
   logoSrc: string;
+  loadError?: string;
 }) {
   const router = useRouter();
   const [images, setImages] = useState(initialImages);
   const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(loadError ?? "");
   const [pending, startTransition] = useTransition();
   const [logoutPending, startLogout] = useTransition();
   const [tab, setTab] = useState<AdminTab>("photos");
@@ -124,62 +133,30 @@ export function AdminDashboard({
           </nav>
         </div>
         <div className="admin-tabs" role="tablist" aria-label="Studio sections">
-          <button
-            ref={photosTabRef}
-            type="button"
-            role="tab"
-            id="admin-tab-photos"
-            className="admin-tab"
-            aria-selected={tab === "photos"}
-            aria-controls="admin-panel-photos"
-            tabIndex={tab === "photos" ? 0 : -1}
-            onClick={() => setTab("photos")}
-            onKeyDown={(event) => onTabKeyDown(event, "photos")}
-          >
-            Photos
-          </button>
-          <button
-            ref={homepageTabRef}
-            type="button"
-            role="tab"
-            id="admin-tab-homepage"
-            className="admin-tab"
-            aria-selected={tab === "homepage"}
-            aria-controls="admin-panel-homepage"
-            tabIndex={tab === "homepage" ? 0 : -1}
-            onClick={() => setTab("homepage")}
-            onKeyDown={(event) => onTabKeyDown(event, "homepage")}
-          >
-            Homepage
-          </button>
-          <button
-            ref={settingsTabRef}
-            type="button"
-            role="tab"
-            id="admin-tab-settings"
-            className="admin-tab"
-            aria-selected={tab === "settings"}
-            aria-controls="admin-panel-settings"
-            tabIndex={tab === "settings" ? 0 : -1}
-            onClick={() => setTab("settings")}
-            onKeyDown={(event) => onTabKeyDown(event, "settings")}
-          >
-            Site settings
-          </button>
-          <button
-            ref={guideTabRef}
-            type="button"
-            role="tab"
-            id="admin-tab-guide"
-            className="admin-tab"
-            aria-selected={tab === "guide"}
-            aria-controls="admin-panel-guide"
-            tabIndex={tab === "guide" ? 0 : -1}
-            onClick={() => setTab("guide")}
-            onKeyDown={(event) => onTabKeyDown(event, "guide")}
-          >
-            How this works
-          </button>
+          {ADMIN_TABS.map((id) => {
+            const copy = TAB_COPY[id];
+            const selected = tab === id;
+            return (
+              <button
+                key={id}
+                ref={tabRefs[id]}
+                type="button"
+                role="tab"
+                id={`admin-tab-${id}`}
+                className="admin-tab"
+                title={copy.full}
+                aria-label={copy.short === copy.full ? undefined : copy.full}
+                aria-selected={selected}
+                aria-controls={`admin-panel-${id}`}
+                tabIndex={selected ? 0 : -1}
+                onClick={() => setTab(id)}
+                onKeyDown={(event) => onTabKeyDown(event, id)}
+              >
+                <span className="admin-tab-full">{copy.full}</span>
+                <span className="admin-tab-short">{copy.short}</span>
+              </button>
+            );
+          })}
         </div>
       </header>
 

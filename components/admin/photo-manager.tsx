@@ -70,7 +70,7 @@ export function PhotoManager({
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
-      const mobile = window.matchMedia("(max-width: 767px)").matches;
+      const mobile = window.matchMedia("(max-width: 1023px)").matches;
       if (mobile && workspaceOpen) {
         setWorkspaceOpen(false);
         return;
@@ -371,10 +371,12 @@ export function PhotoManager({
       ) : null}
 
       {images.length === 0 ? (
-        <p className="admin-empty">Add Sue&rsquo;s first photo to fill the homepage mosaic.</p>
+        error ? null : (
+          <p className="admin-empty">Add Sue&rsquo;s first photo to fill the homepage mosaic.</p>
+        )
       ) : (
         <div className="admin-photos-split">
-          <div className="admin-photo-groups">
+          <div className={`admin-photo-groups${bulkActive ? " is-bulk" : ""}`}>
             <PhotoGroup
               title="On the homepage"
               hint="These faces appear on the card. Drag onto Held back to hide them for later."

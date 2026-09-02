@@ -35,17 +35,23 @@ export default async function AdminPage() {
   let images = toAdminGalleryImages([], "");
   let settings = chrome.settings;
   let logoSrc = chrome.logoSrc;
+  let loadError = "";
 
   try {
     const photos = await listGalleryPhotos();
     images = toAdminGalleryImages(photos, getCloudName());
   } catch {
-    // Keep seed defaults so the client can still sign in and retry.
+    loadError = "Photos could not be loaded. Refresh to try again.";
   }
 
   return (
     <main className="admin-page">
-      <AdminDashboard images={images} settings={settings} logoSrc={logoSrc} />
+      <AdminDashboard
+        images={images}
+        settings={settings}
+        logoSrc={logoSrc}
+        loadError={loadError}
+      />
     </main>
   );
 }

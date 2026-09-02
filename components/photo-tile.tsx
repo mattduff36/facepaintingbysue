@@ -54,7 +54,7 @@ export function PhotoTile({
         "group relative h-full w-full overflow-hidden rounded-2xl bg-ink/5",
         "shadow-[var(--shadow-tile)] ring-2 ring-transparent transition-shadow duration-300",
         "outline-none focus-visible:ring-4 focus-visible:ring-brand-purple",
-        "hover:shadow-2xl",
+        "touch-manipulation hover:shadow-2xl",
         ring,
       ].join(" ")}
     >
@@ -90,10 +90,9 @@ export function PhotoTile({
       )}
 
       {/* darkening wash on hover (affordance, not a zoom) */}
-      <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/60 via-ink/0 to-ink/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+      <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/40 via-ink/0 to-ink/0 opacity-100 transition-opacity duration-300 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100" />
 
-      {/* zoom affordance icon */}
-      <span className="pointer-events-none absolute bottom-2 right-2 flex h-8 w-8 translate-y-2 items-center justify-center rounded-full bg-white/90 text-ink opacity-0 shadow-md transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+      <span className="pointer-events-none absolute bottom-2 right-2 flex h-8 w-8 translate-y-0 items-center justify-center rounded-full bg-white/90 text-ink opacity-100 shadow-md transition-all duration-300 [@media(hover:hover)]:translate-y-2 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:translate-y-0 [@media(hover:hover)]:group-hover:opacity-100">
         <Maximize2 className="h-4 w-4" aria-hidden />
       </span>
 

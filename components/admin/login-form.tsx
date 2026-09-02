@@ -4,7 +4,6 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { loginAction } from "@/app/admin/actions";
 import { BrandMark } from "@/components/brand-mark";
-import { ViewSiteLink } from "./view-site-link";
 
 export function LoginForm({ logoSrc }: { logoSrc: string }) {
   const router = useRouter();
@@ -64,10 +63,6 @@ export function LoginForm({ logoSrc }: { logoSrc: string }) {
       <button type="submit" disabled={pending}>
         {pending ? "Signing in…" : "Sign in"}
       </button>
-
-      <p className="admin-login-nav">
-        <ViewSiteLink />
-      </p>
     </form>
   );
 }

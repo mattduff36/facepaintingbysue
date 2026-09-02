@@ -358,6 +358,10 @@ body {
   cursor: pointer;
 }
 
+.admin-tab-short {
+  display: none;
+}
+
 .admin-tab[aria-selected="true"] {
   background: #fff;
   box-shadow: 0 8px 18px -14px rgba(42, 31, 51, 0.55);
@@ -369,13 +373,14 @@ body {
   gap: 0.5rem;
 }
 
-.admin-nav-link,
 .admin-icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
+  width: 2.35rem;
   min-height: 2.35rem;
+  padding: 0;
   border: 1px solid rgba(42, 31, 51, 0.16);
   border-radius: 999px;
   background: #fff;
@@ -386,22 +391,12 @@ body {
   cursor: pointer;
 }
 
-.admin-nav-link {
-  padding: 0 0.85rem 0 0.7rem;
-}
-
-.admin-icon-btn {
-  width: 2.35rem;
-  padding: 0;
-}
-
 .admin-nav-icon {
   width: 1.05rem;
   height: 1.05rem;
   stroke-width: 2.4;
 }
 
-.admin-nav-link:hover,
 .admin-icon-btn:hover:not(:disabled) {
   border-color: var(--color-brand-purple);
   color: var(--color-brand-purple);
@@ -410,11 +405,6 @@ body {
 .admin-icon-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
-}
-
-.admin-login-nav {
-  margin: 1rem 0 0;
-  text-align: center;
 }
 
 .admin-panel {
@@ -1058,7 +1048,7 @@ body {
   cursor: pointer;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
   .admin-site-form {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -1093,21 +1083,35 @@ body {
   }
 }
 
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .admin-tabs {
-    flex-wrap: nowrap;
+    align-self: stretch;
+    width: 100%;
     max-width: 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    overflow: hidden;
   }
 
   .admin-tab {
-    flex-shrink: 0;
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0.4rem 0.3rem;
+    font-size: 0.78rem;
   }
 
-  .admin-page {
+  .admin-tab-full {
+    display: none;
+  }
+
+  .admin-tab-short {
+    display: inline;
+  }
+
+  .admin-page,
+  .admin-page:has(.admin-shell.is-photos) {
     height: auto;
     min-height: 100svh;
+    overflow: visible;
   }
 
   .admin-shell.is-photos {
@@ -1134,9 +1138,11 @@ body {
     position: fixed;
     left: 1rem;
     right: 1rem;
-    bottom: 0.75rem;
+    bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
     z-index: 15;
     margin-bottom: 0;
+    max-height: min(40vh, 14rem);
+    overflow: auto;
   }
 
   .admin-photos-split {
@@ -1144,12 +1150,25 @@ body {
   }
 
   .admin-mosaic {
-    height: 34rem;
+    height: min(34rem, 70svh);
+  }
+
+  .admin-homepage {
+    overflow: visible;
+  }
+
+  .admin-mosaic-frame {
+    overflow: visible;
+    flex: 0 0 auto;
   }
 
   .admin-photo-groups {
     overflow: visible;
-    padding-bottom: 8rem;
+    padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .admin-photo-groups.is-bulk {
+    padding-bottom: calc(min(40vh, 14rem) + 1.25rem + env(safe-area-inset-bottom, 0px));
   }
 
   .admin-photo-group:not(.is-held),
@@ -1162,7 +1181,6 @@ body {
   .admin-thumbs {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     overflow: visible;
-    padding-bottom: 8rem;
   }
 
   .admin-workspace {

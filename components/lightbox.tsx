@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import Image from "next/image";
 import * as Dialog from "@radix-ui/react-dialog";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import type { GalleryImage } from "@/lib/gallery";
+
+const SWIPE_PX = 40;
 
 interface LightboxProps {
   images: GalleryImage[];
@@ -17,10 +19,11 @@ interface LightboxProps {
 export function Lightbox({ images, openIndex, onClose, onNavigate }: LightboxProps) {
   const isOpen = openIndex !== null;
   const total = images.length;
+  const touchStartX = useRef<number | null>(null);
 
   const goTo = useCallback(
     (delta: number) => {
-      if (openIndex === null || total === 0) return;
+      if (openIndex === null || total <= 1) return;
       onNavigate((openIndex + delta + total) % total);
     },
     [openIndex, total, onNavigate],
@@ -37,20 +40,20 @@ export function Lightbox({ images, openIndex, onClose, onNavigate }: LightboxPro
   }, [isOpen, goTo]);
 
   const current = openIndex !== null ? images[openIndex] : null;
+  const showNav = total > 1;
 
   return (
     <Dialog.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-ink/85 backdrop-blur-md" />
-        <Dialog.Content
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center p-3 focus:outline-none sm:p-6"
-          aria-describedby={undefined}
-        >
+        <Dialog.Content className="fixed inset-0 z-50 flex flex-col items-center justify-center p-3 focus:outline-none sm:p-6">
           <Dialog.Title className="sr-only">
             {current ? current.alt : "Photo viewer"}
           </Dialog.Title>
+          <Dialog.Description className="sr-only">
+            Swipe or use the arrows to browse photos. Press Escape to close.
+          </Dialog.Description>
 
-          {/* Close */}
           <Dialog.Close
             className="absolute right-3 top-3 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:right-6 sm:top-6"
             aria-label="Close"
@@ -58,28 +61,20 @@ export function Lightbox({ images, openIndex, onClose, onNavigate }: LightboxPro
             <X className="h-6 w-6" aria-hidden />
           </Dialog.Close>
 
-          {/* Prev */}
-          <button
-            type="button"
-            onClick={() => goTo(-1)}
-            aria-label="Previous photo"
-            className="absolute left-2 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:left-6 sm:h-14 sm:w-14"
+          <div
+            className="relative mt-12 flex h-[70svh] w-[min(92vw,56rem)] items-center justify-center sm:mt-0"
+            onTouchStart={(event) => {
+              touchStartX.current = event.changedTouches[0]?.clientX ?? null;
+            }}
+            onTouchEnd={(event) => {
+              const start = touchStartX.current;
+              touchStartX.current = null;
+              if (start == null) return;
+              const dx = (event.changedTouches[0]?.clientX ?? start) - start;
+              if (Math.abs(dx) < SWIPE_PX) return;
+              goTo(dx < 0 ? 1 : -1);
+            }}
           >
-            <ChevronLeft className="h-7 w-7" aria-hidden />
-          </button>
-
-          {/* Next */}
-          <button
-            type="button"
-            onClick={() => goTo(1)}
-            aria-label="Next photo"
-            className="absolute right-2 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:right-6 sm:h-14 sm:w-14"
-          >
-            <ChevronRight className="h-7 w-7" aria-hidden />
-          </button>
-
-          {/* Image */}
-          <div className="relative flex h-[80vh] w-[92vw] items-center justify-center sm:w-[86vw]">
             <AnimatePresence mode="wait">
               {current && (
                 <motion.div
@@ -103,14 +98,33 @@ export function Lightbox({ images, openIndex, onClose, onNavigate }: LightboxPro
             </AnimatePresence>
           </div>
 
-          {/* Caption / counter */}
           {current && (
-            <div className="mt-3 flex items-center gap-3 rounded-full bg-white/10 px-4 py-1.5 text-sm font-semibold text-white/90 backdrop-blur">
+            <div className="mt-3 flex items-center gap-2 rounded-full bg-white/10 px-2 py-1.5 text-sm font-semibold text-white/90 backdrop-blur sm:gap-3 sm:px-4">
+              {showNav ? (
+                <button
+                  type="button"
+                  onClick={() => goTo(-1)}
+                  aria-label="Previous photo"
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white transition-colors hover:bg-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                >
+                  <ChevronLeft className="h-6 w-6" aria-hidden />
+                </button>
+              ) : null}
               <span>
                 {openIndex! + 1} / {total}
               </span>
               <span className="h-3 w-px bg-white/30" />
-              <span className="max-w-[60vw] truncate">{current.alt}</span>
+              <span className="max-w-[46vw] truncate sm:max-w-[60vw]">{current.alt}</span>
+              {showNav ? (
+                <button
+                  type="button"
+                  onClick={() => goTo(1)}
+                  aria-label="Next photo"
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white transition-colors hover:bg-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                >
+                  <ChevronRight className="h-6 w-6" aria-hidden />
+                </button>
+              ) : null}
             </div>
           )}
         </Dialog.Content>
