@@ -82,7 +82,10 @@ describe("T-STUDIO-LOCK-ACQUIRE", () => {
     assert.equal([first.ok, second.ok].filter(Boolean).length, 1);
 
     assert.equal(interpretLockRead("{not-json").kind, "uncertain");
+    assert.equal(interpretLockRead("").kind, "uncertain");
+    assert.equal(interpretLockRead(null).kind, "absent");
     assert.equal((await acquireStudioLock("c", memoryStore("{not-json"), now, STUDIO_LOCK_TTL_MS, clock)).ok, false);
+    assert.equal((await acquireStudioLock("c", memoryStore(""), now, STUDIO_LOCK_TTL_MS, clock)).ok, false);
 
     const throwing: StudioLockStore = {
       async read() {

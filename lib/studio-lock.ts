@@ -28,7 +28,8 @@ export type LockRead =
   | { kind: "uncertain" };
 
 export function interpretLockRead(raw: string | null | undefined): LockRead {
-  if (raw == null || raw === "") return { kind: "absent" };
+  if (raw == null) return { kind: "absent" };
+  if (raw === "") return { kind: "uncertain" };
   try {
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return { kind: "uncertain" };
